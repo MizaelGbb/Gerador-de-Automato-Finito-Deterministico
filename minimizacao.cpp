@@ -1,5 +1,6 @@
 #include "minimizacao.h"
-#include <algorithm>
+#include <queue>
+#include <map>
 
 using namespace std;
 
@@ -9,111 +10,109 @@ int Minimizador::obterDestino(Automato& afd, int estadoOrigem, char simbolo) {
             return t.destino;
         }
     }
-    return -1; // -1 representa um estado de erro/limbo (não tem transição)
-}
-
-int Minimizador::descobrirGrupo(const vector<vector<int>>& particao, int estado) {
-    if (estado == -1) return -1;
-    for (int i = 0; i < particao.size(); i++) {
-        if (find(particao[i].begin(), particao[i].end(), estado) != particao[i].end()) {
-            return i;
-        }
-    }
     return -1;
 }
 
-Automato Minimizador::minimizar(Automato& afd) {
-    // PASSO 1: Partição inicial
-    // Agrupamos os estados pelas suas "saídas" (tokens). 
-    // Estados não-finais (vetor vazio) ficam no mesmo grupo.
-    // Estados finais que geram tokens diferentes ficam em grupos diferentes.
-    map<vector<string>, vector<int>> separacaoInicial;
-    for (int i = 0; i < afd.estadosFinais.size(); i++) {
-        separacaoInicial[afd.estadosFinais[i]].push_back(i);
-    }
+// Retorna os estados que conseguimos visitar a partir do estado inicial
+set<int> Minimizador::obterAlcancaveis(Automato& afd) {
+    set<int> alcancaveis;
+    queue<int> fila;
     
-    vector<vector<int>> particao;
-    for (auto& par : separacaoInicial) {
-        particao.push_back(par.second);
-    }
-
-    // PASSO 2: Refinamento dos grupos
-    bool houveDivisao = true;
-    while (houveDivisao) {
-        houveDivisao = false;
-        vector<vector<int>> novaParticao;
-
-        for (auto& grupo : particao) {
-            if (grupo.size() <= 1) {
-                novaParticao.push_back(grupo); // Grupo unitário não pode ser mais dividido
-                continue;
-            }
-
-            // Mapeia uma "assinatura de transição" para os estados que a possuem.
-            // A assinatura é um vetor indicando para qual GRUPO cada estado vai ao ler cada símbolo.
-            map<vector<int>, vector<int>> divisoes;
-
-            for (int estado : grupo) {
-                vector<int> assinatura;
-                for (char simb : afd.alfabeto) {
-                    int destino = obterDestino(afd, estado, simb);
-                    int grupoDoDestino = descobrirGrupo(particao, destino);
-                    assinatura.push_back(grupoDoDestino);
-                }
-                divisoes[assinatura].push_back(estado);
-            }
-
-            // Os estados com a mesma assinatura ficam juntos. 
-            for (auto& par : divisoes) {
-                novaParticao.push_back(par.second);
-            }
-
-            // Se um grupo original gerou 2 ou mais divisões, o algoritmo precisa rodar de novo
-            if (divisoes.size() > 1) {
-                houveDivisao = true;
-            }
-        }
-        particao = novaParticao;
-    }
-
-    // PASSO 3: Construção do novo Autômato Minimizado
-    Automato afdMinimo;
+    fila.push(afd.estadoInicial);
+    alcancaveis.insert(afd.estadoInicial);
     
-    // Identificar qual grupo contém o estado inicial original
-    int grupoInicial = descobrirGrupo(particao, afd.estadoInicial);
-    
-    // Para facilitar a leitura, vamos mapear o id do Grupo para o novo Id de estado do autômato mínimo
-    map<int, int> mapaGruposParaEstados;
-    
-    // O grupo que contém o estado inicial original DEVE ser o estado 0 do novo autômato
-    mapaGruposParaEstados[grupoInicial] = afdMinimo.estadoInicial;
-
-    // Cadastra os outros grupos
-    for (int i = 0; i < particao.size(); i++) {
-        if (i != grupoInicial) {
-            mapaGruposParaEstados[i] = afdMinimo.adicionarEstado();
-        }
-    }
-
-    // Reconstruir transições e marcações finais usando o primeiro estado de cada grupo como representante
-    for (int i = 0; i < particao.size(); i++) {
-        int idNovoEstado = mapaGruposParaEstados[i];
-        int estadoRepresentante = particao[i][0]; // Pegamos um porta-voz do grupo
-
-        // Transcriar transições
+    while (!fila.empty()) {
+        int atual = fila.front();
+        fila.pop();
+        
         for (char simb : afd.alfabeto) {
-            int destOriginal = obterDestino(afd, estadoRepresentante, simb);
-            if (destOriginal != -1) {
-                int grupoDestino = descobrirGrupo(particao, destOriginal);
-                afdMinimo.adicionarTransicao(idNovoEstado, simb, mapaGruposParaEstados[grupoDestino]);
+            int dest = obterDestino(afd, atual, simb);
+            if (dest != -1 && alcancaveis.find(dest) == alcancaveis.end()) {
+                alcancaveis.insert(dest);
+                fila.push(dest);
             }
         }
+    }
+    return alcancaveis;
+}
 
-        // Transcriar marcações de estado final
-        for (string token : afd.estadosFinais[estadoRepresentante]) {
-            afdMinimo.marcarEstadoFinal(idNovoEstado, token);
+// Retorna os estados que têm algum caminho até a um estado final
+set<int> Minimizador::obterVivos(Automato& afd) {
+    set<int> vivos;
+    queue<int> fila;
+    
+    // Passo 1: Todos os estados finais estão vivos por natureza
+    for (int i = 0; i < afd.estadosFinais.size(); i++) {
+        if (!afd.estadosFinais[i].empty()) {
+            vivos.insert(i);
+            fila.push(i);
         }
     }
+    
+    // Passo 2: Pesquisa inversa. Quem consegue chegar aos vivos, também está vivo.
+    while (!fila.empty()) {
+        int atual = fila.front();
+        fila.pop();
+        
+        for (auto& t : afd.transicoes) {
+            if (t.destino == atual && vivos.find(t.origem) == vivos.end()) {
+                vivos.insert(t.origem);
+                fila.push(t.origem);
+            }
+        }
+    }
+    return vivos;
+}
 
-    return afdMinimo;
+Automato Minimizador::minimizar(Automato& afd) {
+    Automato afdLimpo;
+    
+    set<int> alcancaveis = obterAlcancaveis(afd);
+    set<int> vivos = obterVivos(afd);
+    
+    // Mapeamento dos IDs antigos para os novos IDs no autómato limpo
+    map<int, int> mapaEstados;
+    
+    // Garantir que o estado inicial é o 0 no novo autómato
+    mapaEstados[afd.estadoInicial] = afdLimpo.estadoInicial;
+    
+    // Adicionar os restantes estados que são SIMULTANEAMENTE alcançáveis e vivos
+    for (int i = 0; i < afd.estadosFinais.size(); i++) {
+        if (i != afd.estadoInicial && alcancaveis.count(i) && vivos.count(i)) {
+            mapaEstados[i] = afdLimpo.adicionarEstado();
+        }
+    }
+    
+    // Reconstruir as transições apenas com os estados válidos
+    for (auto const& [antigo, novo] : mapaEstados) {
+        // Transições
+        for (char simb : afd.alfabeto) {
+            int destOriginal = obterDestino(afd, antigo, simb);
+            if (destOriginal != -1 && mapaEstados.count(destOriginal)) {
+                afdLimpo.adicionarTransicao(novo, simb, mapaEstados[destOriginal]);
+            }
+        }
+        
+        // Tokens (Finais)
+        for (string token : afd.estadosFinais[antigo]) {
+            afdLimpo.marcarEstadoFinal(novo, token);
+        }
+    }
+    
+    // ==========================================
+    // REQUISITO DO PDF: ESTADO DE ERRO
+    // ==========================================
+    int estadoErro = afdLimpo.adicionarEstado(); // Cria o estado extra
+    
+    // Preenche todos os "buracos" da matriz a apontar para o erro
+    // (incluindo o próprio estado de erro, que fica em loop para si mesmo)
+    for (int i = 0; i <= estadoErro; i++) {
+        for (char simb : afdLimpo.alfabeto) {
+            if (obterDestino(afdLimpo, i, simb) == -1) {
+                afdLimpo.adicionarTransicao(i, simb, estadoErro);
+            }
+        }
+    }
+    
+    return afdLimpo;
 }
