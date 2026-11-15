@@ -36,6 +36,9 @@ private:
 
 public:
 
+    friend class Minimizador;
+    friend class Determinizador;
+
     Automato();
 
     int adicionarEstado();
