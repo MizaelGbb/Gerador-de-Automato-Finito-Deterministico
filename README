@@ -1,5 +1,5 @@
 para compilar 
-g++ main.cpp leitorArquivo.cpp automato.cpp determinizacao.cpp minimizacao.cpp -o gerador_afd
+g++ *.cpp -o gerador_afd
 
 para executar
-.\gerador_afd.exe gramatica.txt
+.\gerador_afd.exe ./testes/<nome-do-test.txt>
