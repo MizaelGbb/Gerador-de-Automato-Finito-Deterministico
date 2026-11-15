@@ -28,7 +28,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Adiciona gramáticas
-    afnd.adicionarGramatica(dados.regrasGramatica, "VARIAVEL");
+    if (!dados.regrasGramatica.empty()) {
+        afnd.adicionarGramatica(dados.regrasGramatica, "VARIAVEL");
+    }
 
     // 2. Determinização: consome o 'afnd' e cria o 'afd'
     Automato afd = Determinizador::determinizar(afnd);

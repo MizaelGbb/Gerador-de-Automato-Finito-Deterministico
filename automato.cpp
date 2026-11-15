@@ -201,6 +201,10 @@ void Automato::exibirMatriz() {
 
 void Automato::adicionarGramatica(const vector<string>& regras, string nomeToken) {
 
+    if (regras.empty()) {
+        return;
+    }
+
     // Relaciona cada não terminal ao seu estado
     map<string, int> estadosGramatica;
 
