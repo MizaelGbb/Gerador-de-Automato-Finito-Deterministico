@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <map>
 
 using namespace std;
 
@@ -36,8 +37,6 @@ private:
 
 public:
 
-    friend class Minimizador;
-    friend class Determinizador;
 
     Automato();
 
@@ -52,6 +51,8 @@ public:
     void marcarEstadoFinal(int estado, string token);
 
     void adicionarToken(string token, string nomeToken);
+
+    void adicionarGramatica(const vector<string>& regras, string nomeToken);
 
     void exibirMatriz();
 

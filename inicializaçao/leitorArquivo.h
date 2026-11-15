@@ -7,8 +7,8 @@ using namespace std;
 #include <vector>
 
 struct EntradaLinguagem {
-    std::vector<std::string> palavrasChave;
-    std::vector<std::string> regrasGramatica;
+    vector<string> palavrasChave;
+    vector<string> regrasGramatica;
 };
 
 // Declaração da função que lê e categoriza o conteúdo do arquivo

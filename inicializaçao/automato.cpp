@@ -1,4 +1,5 @@
 #include "automato.h"
+#include <sstream>
 
 // Construtor
 Automato::Automato() {
@@ -198,6 +199,103 @@ void Automato::exibirMatriz() {
     cout << "==============================\n";
 }
 
+void Automato::adicionarGramatica(const vector<string>& regras, string nomeToken) {
+
+    // Relaciona cada não terminal ao seu estado
+    map<string, int> estadosGramatica;
+
+    // O primeiro não terminal utiliza o estado inicial do autômato
+    string inicial = regras[0].substr(0, regras[0].find("::="));
+
+    size_t inicio = inicial.find_first_not_of(" \t");
+    size_t fim = inicial.find_last_not_of(" \t");
+
+    inicial = inicial.substr(inicio, fim - inicio + 1);
+
+    estadosGramatica[inicial] = estadoInicial;
+
+    // Percorre todas as produções
+    for (const string& regra : regras) {
+
+        size_t posicao = regra.find("::=");
+
+        if (posicao == string::npos) {
+            continue;
+        }
+
+        // Identifica o não terminal da esquerda
+        string origem = regra.substr(0, posicao);
+
+        // Remove espaços das extremidades
+        size_t inicio = origem.find_first_not_of(" \t");
+        size_t fim = origem.find_last_not_of(" \t");
+
+        origem = origem.substr(inicio, fim - inicio + 1);
+
+        // Obtém o estado de origem
+        int estadoOrigem = estadosGramatica[origem];
+
+        // Obtém as alternativas da produção
+        string alternativas = regra.substr(posicao + 3);
+
+        stringstream ss(alternativas);
+        string alternativa;
+
+        while (getline(ss, alternativa, '|')) {
+
+            // Remove espaços da alternativa
+            size_t inicio = alternativa.find_first_not_of(" \t");
+            size_t fim = alternativa.find_last_not_of(" \t");
+
+            if (inicio == string::npos) {
+                continue;
+            }
+
+            alternativa = alternativa.substr(inicio, fim - inicio + 1);
+
+            // Verifica se é epsilon
+            if (alternativa == "ε") {
+                marcarEstadoFinal(estadoOrigem, nomeToken);
+                continue;
+            }
+
+            // Identifica o símbolo terminal
+            char simbolo = alternativa[0];
+
+            // Verifica se existe um não terminal de destino
+            size_t posAbertura = alternativa.find('<');
+            size_t posFechamento = alternativa.find('>');
+
+            int estadoDestino;
+
+            if (posAbertura != string::npos &&
+                posFechamento != string::npos) {
+
+                string destino = alternativa.substr(
+                    posAbertura,
+                    posFechamento - posAbertura + 1
+                );
+
+                // Cria o estado do não terminal, se necessário
+                if (estadosGramatica.find(destino) == estadosGramatica.end()) {
+                    estadosGramatica[destino] = adicionarEstado();
+                }
+
+                estadoDestino = estadosGramatica[destino];
+
+            } else {
+
+                // Caso não exista não terminal, cria um estado final
+                estadoDestino = adicionarEstado();
+                marcarEstadoFinal(estadoDestino, nomeToken);
+            }
+
+            // Adiciona a transição
+            adicionarTransicao(estadoOrigem, simbolo, estadoDestino);
+        }
+    }
+}
+
 void Automato::adicionarToken(string token, string nomeToken) {
 
     int estadoAtual = estadoInicial;
@@ -217,4 +315,5 @@ void Automato::adicionarToken(string token, string nomeToken) {
 
     // Marca o último estado como final
     marcarEstadoFinal(estadoAtual, nomeToken);
+
 }
