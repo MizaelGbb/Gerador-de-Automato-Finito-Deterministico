@@ -6,8 +6,18 @@
 
 using namespace std;
 
-int main() {
-    EntradaLinguagem dados = processarArquivoGramatica("gramatica.txt");
+int main(int argc, char* argv[]) {
+    // Verifica se o arquivo foi passado como argumento
+    if (argc < 2) {
+        cerr << "Erro: Arquivo de entrada nao informado." << endl;
+        cerr << "Uso: " << argv[0] << " <arquivo_de_gramatica.txt>" << endl;
+        return 1; // Encerra o programa com erro
+    }
+
+    // Pega o nome do arquivo a partir do terminal (posição 1)
+    string arquivoEntrada = argv[1];
+    
+    EntradaLinguagem dados = processarArquivoGramatica(arquivoEntrada);
 
     // 1. Cria o autômato original chamando-o de 'afnd'
     Automato afnd;
@@ -18,7 +28,11 @@ int main() {
     }
 
     // Adiciona gramáticas
-    afnd.adicionarGramatica(dados.regrasGramatica, "VARIAVEL");
+    if (!dados.regrasGramatica.empty()) {
+        afnd.adicionarGramatica(dados.regrasGramatica, "VARIAVEL");
+    }
+
+    afnd.exibirMatriz();
 
     // 2. Determinização: consome o 'afnd' e cria o 'afd'
     Automato afd = Determinizador::determinizar(afnd);

@@ -201,6 +201,10 @@ void Automato::exibirMatriz() {
 
 void Automato::adicionarGramatica(const vector<string>& regras, string nomeToken) {
 
+    if (regras.empty()) {
+        return;
+    }
+
     // Relaciona cada não terminal ao seu estado
     map<string, int> estadosGramatica;
 
@@ -232,7 +236,9 @@ void Automato::adicionarGramatica(const vector<string>& regras, string nomeToken
 
         origem = origem.substr(inicio, fim - inicio + 1);
 
-        // Obtém o estado de origem
+        if (estadosGramatica.find(origem) == estadosGramatica.end()) {
+            estadosGramatica[origem] = adicionarEstado();
+        }
         int estadoOrigem = estadosGramatica[origem];
 
         // Obtém as alternativas da produção
@@ -241,58 +247,79 @@ void Automato::adicionarGramatica(const vector<string>& regras, string nomeToken
         stringstream ss(alternativas);
         string alternativa;
 
-        while (getline(ss, alternativa, '|')) {
+       while (getline(ss, alternativa, '|')) {
 
-            // Remove espaços da alternativa
-            size_t inicio = alternativa.find_first_not_of(" \t");
-            size_t fim = alternativa.find_last_not_of(" \t");
+        // Remove espaços da alternativa
+        size_t inicio = alternativa.find_first_not_of(" \t");
+        size_t fim = alternativa.find_last_not_of(" \t");
 
-            if (inicio == string::npos) {
-                continue;
-            }
+        if (inicio == string::npos) {
+            continue;
+        }
 
-            alternativa = alternativa.substr(inicio, fim - inicio + 1);
+        alternativa = alternativa.substr(inicio, fim - inicio + 1);
 
-            // Verifica se é epsilon
-            if (alternativa == "ε") {
-                marcarEstadoFinal(estadoOrigem, nomeToken);
-                continue;
-            }
+        // Verifica se é epsilon
+        if (alternativa == "ε") {
+            marcarEstadoFinal(estadoOrigem, nomeToken);
+            continue;
+        }
 
-            // Identifica o símbolo terminal
-            char simbolo = alternativa[0];
-
-            // Verifica se existe um não terminal de destino
+        // CORREÇÃO: Se a alternativa começa diretamente com um não-terminal (ex: <B>)
+        if (alternativa[0] == '<') {
             size_t posAbertura = alternativa.find('<');
             size_t posFechamento = alternativa.find('>');
 
-            int estadoDestino;
+            string destino = alternativa.substr(
+                posAbertura,
+                posFechamento - posAbertura + 1
+            );
 
-            if (posAbertura != string::npos &&
-                posFechamento != string::npos) {
-
-                string destino = alternativa.substr(
-                    posAbertura,
-                    posFechamento - posAbertura + 1
-                );
-
-                // Cria o estado do não terminal, se necessário
-                if (estadosGramatica.find(destino) == estadosGramatica.end()) {
-                    estadosGramatica[destino] = adicionarEstado();
-                }
-
-                estadoDestino = estadosGramatica[destino];
-
-            } else {
-
-                // Caso não exista não terminal, cria um estado final
-                estadoDestino = adicionarEstado();
-                marcarEstadoFinal(estadoDestino, nomeToken);
+            // Cria o estado do não terminal, se necessário
+            if (estadosGramatica.find(destino) == estadosGramatica.end()) {
+                estadosGramatica[destino] = adicionarEstado();
             }
 
-            // Adiciona a transição
-            adicionarTransicao(estadoOrigem, simbolo, estadoDestino);
+            int estadoDestino = estadosGramatica[destino];
+
+            // Adiciona uma transição vazia (epsilon), pois nenhum terminal foi consumido
+            adicionarTransicaoVazia(estadoOrigem, estadoDestino);
+            continue;
         }
+
+        // Caso contrário, temos um terminal no início (ex: a <B> ou apenas a)
+        char simbolo = alternativa[0];
+
+        size_t posAbertura = alternativa.find('<');
+        size_t posFechamento = alternativa.find('>');
+
+        int estadoDestino;
+
+        if (posAbertura != string::npos &&
+            posFechamento != string::npos) {
+
+            string destino = alternativa.substr(
+                posAbertura,
+                posFechamento - posAbertura + 1
+            );
+
+            // Cria o estado do não terminal, se necessário
+            if (estadosGramatica.find(destino) == estadosGramatica.end()) {
+                estadosGramatica[destino] = adicionarEstado();
+            }
+
+            estadoDestino = estadosGramatica[destino];
+
+        } else {
+
+            // Caso não exista não terminal, cria um estado final
+            estadoDestino = adicionarEstado();
+            marcarEstadoFinal(estadoDestino, nomeToken);
+        }
+
+        // Adiciona a transição normal com o símbolo terminal
+        adicionarTransicao(estadoOrigem, simbolo, estadoDestino);
+    }
     }
 }
 
